@@ -72,10 +72,14 @@ HTTP is the runtime's: pass a `Dmorenof\SdkRuntime\Configuration` to `new Gatewa
 
 ## What is verified, and what is not
 
-- **The signature** (all three schemes of the library, `HMAC_SHA512_V2` by default): the tests compare it with values
-  produced by Redsys's own PHP library (`redsys-lib` 2.0.1, which this SDK does not use) for the same input. Nothing here
-  was run against a Redsys server: the proof that Redsys accepts it is a payment in the test environment, which needs
-  network access to `sis-t.redsys.es:25443`.
+- **Against Redsys's test environment** (merchant 999008881, the public test data): the first REST call of a card payment, signed by
+  this SDK with `HMAC_SHA512_V2`, was accepted, and the signature of Redsys's answer was verified by `Gateway` (an answer
+  with `protocolVersion 2.2.0` and a real `threeDSServerTransID`). That run is `tests/live/test-environment.php`
+  (workflow *Redsys test environment*, manual); a wrong signature would have been answered with `SIS0042`. It also showed that
+  Redsys answers with `threeDSInfo` values beyond the three of the manual (`CardConfiguration`), which the model keeps as text.
+  A complete payment, with a 3-D Secure challenge, was not made.
+- **The signature**, all three schemes: the unit tests compare it with values produced by Redsys's own PHP library
+  (`redsys-lib` 2.0.1, which this SDK does not use) for the same input.
 - **The parameters and their limits**: the manual *Integración utilizando HMAC SHA256* (Annex 8.1) for the length and format of
   the common ones; the others are typed but not constrained. The names come from Redsys's library and manuals.
 - **Not covered yet**: the operation query API (`apis.redsys.es`), InSite, Bizum flows beyond the parameters, and the

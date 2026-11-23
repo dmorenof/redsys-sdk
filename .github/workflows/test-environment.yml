@@ -3,9 +3,6 @@ name: Redsys test environment (manual)
 # Manual: a real call to Redsys's TEST environment with the public test data, to see that Redsys accepts our signature and that
 # we verify its answer. Needs a runner that Redsys lets in.
 on:
-  push:
-    branches: [claude/busy-franklin-9x9zpa]
-    paths: ['.github/workflows/test-environment.yml', 'tests/live/**'] # TEMPORARY, until the workflow is on the default branch
   workflow_dispatch:
 
 permissions:
