@@ -11,6 +11,9 @@ use Redsys\ResponseCodes;
  */
 final class Result extends DTO
 {
+    public const string ADDITIONAL_PROPERTIES_TYPE = 'mixed';
+    public const bool ADDITIONAL_PROPERTIES_NULLABLE = true;
+
     /** @var array<string, string> Name in the answer, in capitals => PHP property: every spelling Redsys uses. */
     protected const array PROPERTY_MAP = [
         'DS_ORDER' => 'order',

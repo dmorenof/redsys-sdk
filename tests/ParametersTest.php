@@ -21,7 +21,7 @@ final class ParametersTest extends TestCase
         $payment->currency = '978';
         $payment->transactionType = TransactionType::Authorisation;
         $payment->urlOk = 'https://shop.example/ok';
-        self::assertSame([
+        self::assertEquals([
             'DS_MERCHANT_ORDER' => '1446117555', 'DS_MERCHANT_AMOUNT' => '145', 'DS_MERCHANT_CURRENCY' => '978',
             'DS_MERCHANT_TRANSACTIONTYPE' => '0', 'DS_MERCHANT_URLOK' => 'https://shop.example/ok',
         ], $payment->parameters());

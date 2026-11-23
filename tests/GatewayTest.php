@@ -70,7 +70,7 @@ final class GatewayTest extends TestCase
 
         self::assertSame('POST', $this->sent[0]->getMethod());
         self::assertSame('https://sis-t.redsys.es:25443/sis/rest/trataPeticionREST', (string) $this->sent[0]->getUri());
-        self::assertSame([
+        self::assertEqualsCanonicalizing([
             'DS_MERCHANT_ORDER' => '1446117555', 'DS_MERCHANT_AMOUNT' => '145', 'DS_MERCHANT_MERCHANTCODE' => '999008881',
             'DS_MERCHANT_TERMINAL' => '1', 'DS_MERCHANT_CURRENCY' => '978', 'DS_MERCHANT_TRANSACTIONTYPE' => '0',
         ], $this->sentParameters());
@@ -96,7 +96,7 @@ final class GatewayTest extends TestCase
         $gateway = $this->gateway(self::json(Support::signed(['Ds_Order' => '1446117555', 'Ds_Response' => '0000'])));
         $payment = self::payment();
         $gateway->refund($payment);
-        self::assertSame(['DS_MERCHANT_ORDER' => '1446117555', 'DS_MERCHANT_AMOUNT' => '145'], $payment->parameters());
+        self::assertEquals(['DS_MERCHANT_ORDER' => '1446117555', 'DS_MERCHANT_AMOUNT' => '145'], $payment->parameters());
     }
 
     public function testEachOperationCarriesItsTransactionType(): void

@@ -10,6 +10,9 @@ use Dmorenof\SdkRuntime\DTO;
  */
 final class Emv3ds extends DTO
 {
+    public const string ADDITIONAL_PROPERTIES_TYPE = 'mixed';
+    public const bool ADDITIONAL_PROPERTIES_NULLABLE = true;
+
     /** 3-D Secure protocol version the card supports (answered to CardData, repeated afterwards). */
     public ?string $protocolVersion;
 

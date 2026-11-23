@@ -18,7 +18,10 @@ use Dmorenof\SdkRuntime\DTO;
  */
 final class Parameters extends DTO
 {
-    protected const array REQUIRED_FIELDS = ['amount', 'order'];
+    protected const array REQUIRED_FIELDS = ['order'];
+
+    public const string ADDITIONAL_PROPERTIES_TYPE = 'mixed';
+    public const bool ADDITIONAL_PROPERTIES_NULLABLE = true;
 
     protected const array VALIDATION = [
         'merchantCode' => ['pattern' => '^[0-9]{1,9}$'],

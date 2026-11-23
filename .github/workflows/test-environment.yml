@@ -1,0 +1,38 @@
+name: Redsys test environment (manual)
+
+# Manual: a real call to Redsys's TEST environment with the public test data, to see that Redsys accepts our signature and that
+# we verify its answer. Needs a runner that Redsys lets in.
+on:
+  push:
+    branches: [claude/busy-franklin-9x9zpa]
+    paths: ['.github/workflows/test-environment.yml', 'tests/live/**'] # TEMPORARY, until the workflow is on the default branch
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SDK_RUNTIME_REF: claude/busy-franklin-9x9zpa
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+      - name: Can the runner reach Redsys test?
+        run: |
+          curl -sS -m 20 -o /dev/null -w 'sis-t:25443 -> %{http_code}\n' -X POST -H 'Content-Type: application/json' -d '{}' https://sis-t.redsys.es:25443/sis/rest/trataPeticionREST || echo "sis-t is not reachable from this runner"
+      - name: Use the runtime branch (TEMPORARY)
+        run: |
+          composer config repositories.runtime vcs https://github.com/dmorenof/sdk-runtime
+          composer config minimum-stability dev
+          composer require "dmorenof/sdk-runtime:dev-$SDK_RUNTIME_REF as 1.99.0" --no-update --no-interaction
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: The first call of a card payment, signed by the SDK
+        run: php tests/live/test-environment.php
