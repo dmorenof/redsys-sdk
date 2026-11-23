@@ -26,6 +26,7 @@ try {
     $result = $gateway->init($payment);
     echo "ANSWER VERIFIED. response=", var_export($result->response ?? null, true), ' order=', $result->order ?? '?', "\n";
     echo 'emv3ds: ', json_encode($result->emv3ds?->jsonSerialize()), "\n";
+    echo 'additional: ', json_encode(array_keys($result->additionalProperties())), "\n";
     exit(0);
 } catch (RedsysException $error) {
     echo 'REDSYS ERROR ', $error->errorCode ?? '?', ': ', $error->getMessage(), "\n";
