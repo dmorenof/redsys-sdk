@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # TEMPORARY: until sdk-runtime 1.12.0 is published, test against its branch. Remove with the override below.
+  SDK_RUNTIME_REF: claude/busy-franklin-9x9zpa
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          coverage: none
+      - name: Use the runtime branch (TEMPORARY)
+        if: env.SDK_RUNTIME_REF != ''
+        run: |
+          composer config repositories.runtime vcs https://github.com/dmorenof/sdk-runtime
+          composer config minimum-stability dev
+          composer require "dmorenof/sdk-runtime:dev-$SDK_RUNTIME_REF as 1.99.0" --no-update --no-interaction
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: vendor/bin/phpunit
