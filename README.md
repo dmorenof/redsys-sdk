@@ -1,67 +1,89 @@
 # Redsys SDK
 
-Payments with Redsys (TPV Virtual) from PHP 8.4: a payment form signed the way Redsys requires, and notifications whose
-signature is verified before anything in them is read. Built on [sdk-runtime](https://github.com/dmorenof/sdk-runtime):
-the payment is a typed model whose every value is checked where it is assigned, against the lengths and formats of
-Redsys's manual.
+Redsys (TPV Virtual) payments from PHP 8.4, on [sdk-runtime](https://github.com/dmorenof/sdk-runtime): redirection and
+REST (with 3-D Secure), the operations a shop uses, requests signed with `HMAC_SHA512_V2`, and answers and notifications
+verified before anything in them is read.
 
 Redsys publishes no machine-readable contract (no OpenAPI), so this SDK is written by hand, which is what the runtime is
-for as well: the models, validation and errors are the runtime's; only what is specific to Redsys is here.
+also for: the models, their validation, the HTTP client, servers, retries, middleware and errors are the runtime's, and
+only what is specific to Redsys is here.
 
-## Pay
+## Pay by redirection
 
 ```php
-use Redsys\{Environment, PaymentForm, PaymentRequest, TransactionType};
+use Redsys\{Gateway, Merchant};
+use Redsys\Dto\Parameters;
 
-$payment = new PaymentRequest();
-$payment->merchantCode = '999008881';
-$payment->terminal = '1';
-$payment->transactionType = TransactionType::Authorisation;
-$payment->amount = 145;                    // 1.45 EUR: the last two digits are cents
-$payment->currency = '978';                // euros
-$payment->order = '1446117555';            // 12 characters at most, the first four digits
+$gateway = new Gateway(Merchant::fromApiKey($apiKey));   // the API key of the Redsys portal: merchant, terminal, key, environment
+
+$payment = new Parameters();
+$payment->amount = 145;                      // 1.45 EUR: the last two digits are cents
+$payment->order = '1446117555';              // up to 12 characters, the first four digits
 $payment->merchantUrl = 'https://shop.example/redsys/notification';
 $payment->urlOk = 'https://shop.example/paid';
 $payment->urlKo = 'https://shop.example/failed';
 
-echo PaymentForm::create($payment, $secretKey, Environment::Test)->html();   // sends the payer to Redsys
+echo $gateway->redirectForm($payment)->html();   // sends the payer to Redsys
 ```
 
-A value that breaks the manual (`$payment->order = 'abc'`, an amount below zero, a terminal of four digits) is refused
-at that line, not by Redsys's server later with `SIS0431`.
+The merchant code, the terminal and the currency (euros) are filled in. A value that breaks the manual
+(`$payment->order = 'abc'`, a negative amount, a terminal of four digits) is refused at that line, not later by Redsys's
+server with `SIS0431`.
 
 ## Be told
 
 ```php
-use Redsys\{InvalidNotification, Notification};
+use Redsys\InvalidSignatureException;
 
 try {
-    $result = Notification::fromPost($_POST, $secretKey);
-} catch (InvalidNotification $error) {
-    http_response_code(400);               // not signed by Redsys: ignore it
+    $result = $gateway->notification($_POST);
+} catch (InvalidSignatureException $error) {
+    http_response_code(400);                 // not signed by Redsys with this merchant's key: ignore it
     exit;
 }
 if ($result->authorised()) {
-    markAsPaid($result->order, $result->amount);   // Ds_Response 0000-0099 (900 refunds, 400 cancellations)
+    markAsPaid($result->order, (int) $result->amount);
 }
 ```
 
-Nothing in a notification is available before its signature has been verified, in either Base64 alphabet, and a name in
-capitals (`DS_ORDER`) or in camel case (`Ds_Order`) reads the same.
+The redirect back to `urlOk` only says the payer finished; the notification is what settles the order.
+
+## Pay by REST
+
+```php
+$payment->cardNumber = $card;  $payment->cardExpiryDate = '4912';  $payment->cvv2 = $cvv;   // YYMM
+
+$init = $gateway->init($payment);            // which verification the card needs (iniciaPeticionREST)
+// …the payer's browser data goes into $payment->emv3ds (see Dto\Emv3ds)…
+$result = $gateway->authorise($payment);     // trataPeticionREST
+
+if (!$result->authorised() && $result->emv3ds?->acsURL !== null) {
+    echo $gateway->challengeForm($result)->html();             // the issuer's challenge
+}
+// the issuer posts back to notificationURL:
+$result = $gateway->challengeResponse($order, $protocolVersion, $_POST['cres']);
+```
+
+Operations: `authorise`, `preauthorise`, `confirmPreauthorisation`, `partiallyConfirm`, `refund`, `void`, `cancel`,
+`authenticate`, `confirmAuthentication`, and `operate($parameters, TransactionType)` for any other.
+A refusal of Redsys (`errorCode`) is a `RedsysException`; an HTTP failure is the runtime's `ApiException`.
+
+HTTP is the runtime's: pass a `Dmorenof\SdkRuntime\Configuration` to `new Gateway(...)` for timeouts, a proxy, retries or middleware.
 
 ## What is verified, and what is not
 
-- **The signature** (3DES key derivation from the order number, HMAC SHA256): the example of the manual's connection by
-  redirection gives, with Redsys's generic test key, the same signature in this code, in the `openssl` command line and in
-  Python's `cryptography`. The manual's own signature example is a placeholder, so there is no Redsys-published vector:
-  the proof that Redsys accepts it is a payment in the test environment (`Environment::Test`), which needs network access
-  to `sis-t.redsys.es:25443` and is not part of the automated tests.
-- **The parameters and their limits**: Annex 8.1 and 8.2 of the manual *Integración utilizando HMAC SHA256* (version 2.1).
-  Only the parameters most shops use are modelled; ask for the rest.
-- **Not covered yet**: the direct (REST/Web Service) connection, recurring and reference payments, InSite. The test
-  data of the manual (merchant 999008881, terminal 1, key `sq7HjrUOBfKmC576ILgskD5srU870gJ7`, card 4548 8120 4940 0004,
-  12/20, CVV2 123, 3-D Secure code 123456) is Redsys's, public, and for the test environment only.
+- **The signature** (all three schemes of the library, `HMAC_SHA512_V2` by default): the tests compare it with values
+  produced by Redsys's own PHP library (`redsys-lib` 2.0.1, which this SDK does not use) for the same input. Nothing here
+  was run against a Redsys server: the proof that Redsys accepts it is a payment in the test environment, which needs
+  network access to `sis-t.redsys.es:25443`.
+- **The parameters and their limits**: the manual *Integración utilizando HMAC SHA256* (Annex 8.1) for the length and format of
+  the common ones; the others are typed but not constrained. The names come from Redsys's library and manuals.
+- **Not covered yet**: the operation query API (`apis.redsys.es`), InSite, Bizum flows beyond the parameters, and the
+  descriptions of every response code (the common ones are described; see Redsys's table).
+
+The test data of the manual (merchant 999008881, terminal 1, key `sq7HjrUOBfKmC576ILgskD5srU870gJ7`, card 4548 8120 4940 0004, 12/20,
+CVV2 123, 3-D Secure code 123456) is Redsys's, public, and for the test environment only.
 
 ## Requirements
 
-PHP 8.4 or later, `ext-openssl`, `dmorenof/sdk-runtime`.
+PHP 8.4 or later, `ext-openssl`, `dmorenof/sdk-runtime` 1.12 or later.

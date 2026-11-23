@@ -3,56 +3,58 @@ declare(strict_types=1);
 
 namespace Redsys\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Redsys\Signature;
+use Redsys\SignatureVersion;
 
+/**
+ * Every expected value here was produced by Redsys's own PHP library (`redsys-lib` 2.0.1) for the same input, which the
+ * code under test does not use. The key is Redsys's generic test key.
+ */
 final class SignatureTest extends TestCase
 {
-    /** The generic test key Redsys publishes for every merchant (manual of the redirection connection, section 6). */
-    private const KEY = 'sq7HjrUOBfKmC576ILgskD5srU870gJ7';
+    private const PARAMETERS = 'eyJEU19NRVJDSEFOVF9BTU9VTlQiOiIxNDUiLCJEU19NRVJDSEFOVF9PUkRFUiI6IjE0NDYxMTc1NTUifQ';
 
-    /** The Base64 JSON of the manual's first example (amount 999, order 1234567890, merchant 999008881). */
-    private const PARAMETERS = 'eyJEU19NRVJDSEFOVF9BTU9VTlQiOiI5OTkiLCJEU19NRVJDSEFOVF9PUkRFUiI6IjEyMzQ1Njc4OTAiLCJEU19NRVJDSEFOVF9NRVJDSEFOVENPREUiOiI5OTkwMDg4ODEiLCJEU19NRVJDSEFOVF9DVVJSRU5DWSI6Ijk3OCIsIkRTX01FUkNIQU5UX1RSQU5TQUNUSU9OVFlQRSI6IjAiLCJEU19NRVJDSEFOVF9URVJNSU5BTCI6IjEiLCJEU19NRVJDSEFOVF9NRVJDSEFOVFVSTCI6Imh0dHA6XC9cL3d3dy5wcnVlYmEuY29tXC91cmxOb3RpZmljYWNpb24ucGhwIiwiRFNfTUVSQ0hBTlRfVVJMT0siOiJodHRwOlwvXC93d3cucHJ1ZWJhLmNvbVwvdXJsT0sucGhwIiwiRFNfTUVSQ0hBTlRfVVJMS08iOiJodHRwOlwvXC93d3cucHJ1ZWJhLmNvbVwvdXJsS08ucGhwIn0';
-
-    /** Computed by three other implementations that agree: the `openssl` command line (des-ede3-cbc, then dgst -mac HMAC), Python's `cryptography` and this one. */
-    private const EXPECTED = 'Yx3zR6dIlm1GdJjKSBP9vX6qV+iedPxPSMnZGpUhfPI=';
-
-    public function testTheManualsExampleGivesTheSignatureOfIndependentImplementations(): void
+    /** @return iterable<string, array{string, string, string}> */
+    public static function vectors(): iterable
     {
-        self::assertSame(self::EXPECTED, Signature::sign(self::PARAMETERS, '1234567890', self::KEY));
+        yield 'SHA-256 V1' => ['HMAC_SHA256_V1', '1446117555', 'kVMizxx8WDiMn4QvgF7E0bm_wdql4Ln_-JhfGE-qZUU='];
+        yield 'SHA-512 V1' => ['HMAC_SHA512_V1', '1446117555', 'Evsd9vQrI2pPRzkdM6P24ZDARodjCN3cWALUOx83rJWYTeOHVE3ECl8J5s3L0ZVKt8BvR1Rj8vLn9QDQmgjcPA=='];
+        yield 'SHA-512 V2' => ['HMAC_SHA512_V2', '1446117555', 'Evsd9vQrI2pPRzkdM6P24ZDARodjCN3cWALUOx83rJWYTeOHVE3ECl8J5s3L0ZVKt8BvR1Rj8vLn9QDQmgjcPA'];
+        yield 'V2, an order of one character' => ['HMAC_SHA512_V2', '1', 'ZxVPC-PkOsjJcj6ZFZMElTyEgw2MAUFhOxkUuZQW1v18JW-MzBI4b8SkFDJmNHLPF6eXM_vaCo9rLUXPn0l1OA'];
+        yield 'V2, an order of one block' => ['HMAC_SHA512_V2', '12345678', 'sPlTn01AXNQPQ9b38Q1GfgMWoz7Y59nZgKfZ7jOmkiNylU1CruhcceP7EwhDfLSZnIl6t32pukXQUI6_cHCdiQ'];
+        yield 'V2, an order of twelve digits' => ['HMAC_SHA512_V2', '123456789012', '2iBYvtdxUaTK2CgZ8U25WYLLcvFfOeD5KEvTJNWDE47DshM9fzusmuSd6Isv0KJWqLlo73mch-ahCIIL90Gp-A'];
+        yield 'V2, an order with letters' => ['HMAC_SHA512_V2', 'abcd1234EFGH', 'R3nwxWws1oYVorCPnJf5chtofvT_eJmkBV-GLgMtVNHUstTV8CDF0sB8M0rFODqonHBInm7OeGDGLYyfWZw9rg'];
     }
 
-    public function testTheSignatureDependsOnTheOrderNumber(): void
+    #[DataProvider('vectors')]
+    public function testItGivesTheSignatureOfRedsysOwnLibrary(string $version, string $order, string $expected): void
     {
-        self::assertNotSame(self::EXPECTED, Signature::sign(self::PARAMETERS, '1234567891', self::KEY));
+        self::assertSame($expected, Signature::sign(self::PARAMETERS, $order, Support::KEY, SignatureVersion::from($version)));
     }
 
-    public function testAnOrderNumberOfAnyLengthIsPaddedWithZeroBytes(): void
+    public function testVerifyAcceptsEverySpellingOfTheSameSignature(): void
     {
-        // 8 characters is exactly one block: no padding; 9 needs a second block.
-        self::assertNotSame(Signature::sign('x', '12345678', self::KEY), Signature::sign('x', '123456789', self::KEY));
-        self::assertSame(Signature::sign('x', "1234\0\0\0\0", self::KEY), Signature::sign('x', '1234', self::KEY));
+        $url = 'Evsd9vQrI2pPRzkdM6P24ZDARodjCN3cWALUOx83rJWYTeOHVE3ECl8J5s3L0ZVKt8BvR1Rj8vLn9QDQmgjcPA';
+        foreach ([$url, $url . '==', strtr($url, '-_', '+/')] as $received) {
+            self::assertTrue(Signature::verify($received, self::PARAMETERS, '1446117555', Support::KEY), $received);
+        }
     }
 
-    public function testVerifyAcceptsEveryBase64SpellingOfTheSignature(): void
+    public function testVerifyRefusesAnotherSignatureParametersOrderKeyOrScheme(): void
     {
-        $url = rtrim(strtr(self::EXPECTED, '+/', '-_'), '=');
-        self::assertTrue(Signature::verify(self::EXPECTED, self::PARAMETERS, '1234567890', self::KEY));
-        self::assertTrue(Signature::verify($url, self::PARAMETERS, '1234567890', self::KEY));
-        self::assertSame('Yx3zR6dIlm1GdJjKSBP9vX6qV-iedPxPSMnZGpUhfPI', $url, 'the vector has a + that the URL-safe alphabet writes as -');
+        $good = Signature::sign(self::PARAMETERS, '1446117555', Support::KEY);
+        self::assertFalse(Signature::verify('A' . substr($good, 1), self::PARAMETERS, '1446117555', Support::KEY));
+        self::assertFalse(Signature::verify($good, self::PARAMETERS . 'A', '1446117555', Support::KEY));
+        self::assertFalse(Signature::verify($good, self::PARAMETERS, '1446117556', Support::KEY));
+        self::assertFalse(Signature::verify($good, self::PARAMETERS, '1446117555', 'another key of 32 characters.....'));
+        self::assertFalse(Signature::verify('', self::PARAMETERS, '1446117555', Support::KEY));
     }
 
-    public function testVerifyRefusesAnyOtherSignatureParametersOrKey(): void
-    {
-        self::assertFalse(Signature::verify('Yx3zR6dIlm1GdJjKSBP9vX6qV+iedPxPSMnZGpUhfPA=', self::PARAMETERS, '1234567890', self::KEY));
-        self::assertFalse(Signature::verify(self::EXPECTED, self::PARAMETERS . 'A', '1234567890', self::KEY));
-        self::assertFalse(Signature::verify(self::EXPECTED, self::PARAMETERS, '1234567890', base64_encode(str_repeat('k', 24))));
-        self::assertFalse(Signature::verify('', self::PARAMETERS, '1234567890', self::KEY));
-    }
-
-    public function testAKeyThatIsNotRedsysBase64Of24BytesIsRefused(): void
+    public function testTheOlderSchemeNeedsTheKeyInBase64Of24Bytes(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        Signature::sign(self::PARAMETERS, '1234567890', 'not a key');
+        Signature::sign(self::PARAMETERS, '1446117555', 'not a key', SignatureVersion::HmacSha256V1);
     }
 }

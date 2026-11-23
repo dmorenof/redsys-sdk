@@ -1,6 +1,6 @@
 {
     "name": "dmorenof/redsys-sdk",
-    "description": "Redsys (TPV Virtual) payments for PHP 8.4: signed payment forms and verified notifications, on dmorenof/sdk-runtime.",
+    "description": "Redsys (TPV Virtual) for PHP 8.4: redirection and REST payments with 3-D Secure, signed requests and verified answers, on dmorenof/sdk-runtime.",
     "type": "library",
     "license": "MIT",
     "require": {
@@ -12,7 +12,17 @@
     "require-dev": {
         "phpunit/phpunit": "^11.5"
     },
-    "autoload": { "psr-4": { "Redsys\\": "src/" } },
-    "autoload-dev": { "psr-4": { "Redsys\\Tests\\": "tests/" } },
-    "config": { "sort-packages": true }
+    "autoload": {
+        "psr-4": {
+            "Redsys\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Redsys\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
 }
