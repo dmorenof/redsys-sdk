@@ -16,8 +16,8 @@ final class Emv3ds extends DTO
     /** 3-D Secure protocol version the card supports (answered to CardData, repeated afterwards). */
     public ?string $protocolVersion;
 
-    /** The step of the flow. */
-    public ?\Redsys\ThreeDsInfo $threeDSInfo;
+    /** The step of the flow: a {@see \Redsys\ThreeDsInfo} value when you send it; Redsys answers with others too (`CardConfiguration`). */
+    public ?string $threeDSInfo;
 
     /** Identifier of the 3-D Secure transaction. */
     public ?string $threeDSServerTransID;

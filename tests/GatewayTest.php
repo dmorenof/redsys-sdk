@@ -134,9 +134,16 @@ final class GatewayTest extends TestCase
         $gateway = $this->gateway(self::json(Support::signed(['Ds_Order' => '1446117555', 'Ds_Response' => '0000'])));
         $result = $gateway->challengeResponse('1446117555', '2.2.0', 'eyJ0aHJlZURTU2VydmVyVHJhbnNJRCI6IngifQ');
         $sent = $this->sentParameters();
-        self::assertSame(['threeDSInfo' => 'ChallengeResponse', 'protocolVersion' => '2.2.0', 'cres' => 'eyJ0aHJlZURTU2VydmVyVHJhbnNJRCI6IngifQ'], $sent['DS_MERCHANT_EMV3DS']);
+        self::assertEquals(['threeDSInfo' => 'ChallengeResponse', 'protocolVersion' => '2.2.0', 'cres' => 'eyJ0aHJlZURTU2VydmVyVHJhbnNJRCI6IngifQ'], $sent['DS_MERCHANT_EMV3DS']);
         self::assertArrayNotHasKey('DS_MERCHANT_TRANSACTIONTYPE', $sent);
         self::assertTrue($result->authorised());
+    }
+
+    public function testAStepOfTheFlowThisSdkDoesNotNameIsKept(): void
+    {
+        $gateway = $this->gateway();
+        $result = $gateway->notification(Support::signed(['Ds_Order' => '1446117555', 'Ds_Response' => '', 'Ds_EMV3DS' => ['threeDSInfo' => 'CardConfiguration', 'protocolVersion' => '2.2.0']]));
+        self::assertSame('CardConfiguration', $result->emv3ds->threeDSInfo);
     }
 
     public function testAnAnswerThatAsksForAChallengeGivesTheFormThatSendsThePayerToTheIssuer(): void

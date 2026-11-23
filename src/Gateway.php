@@ -151,7 +151,7 @@ final class Gateway
     private static function emv3ds(ThreeDsInfo $info): Emv3ds
     {
         $emv3ds = new Emv3ds();
-        $emv3ds->threeDSInfo = $info;
+        $emv3ds->threeDSInfo = $info->value;
         return $emv3ds;
     }
 

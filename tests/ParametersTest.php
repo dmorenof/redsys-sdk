@@ -32,7 +32,7 @@ final class ParametersTest extends TestCase
         $payment = new Parameters();
         $payment->order = '1446117555';
         $emv3ds = new Emv3ds();
-        $emv3ds->threeDSInfo = ThreeDsInfo::AuthenticationData;
+        $emv3ds->threeDSInfo = ThreeDsInfo::AuthenticationData->value;
         $emv3ds->browserJavascriptEnabled = true;
         $emv3ds->browserTZ = '-60';
         $payment->emv3ds = $emv3ds;
